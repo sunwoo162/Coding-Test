@@ -245,7 +245,7 @@ function sendWebhook(url, data) {
 
   const parsedProblems = allCommits
     .map(c => ({ raw: c.message, parsed: parseProgrammersCommit(c.message) }))
-    .filter(c => c.parsed !== null);
+    .filter(c => c.parsed !== null && c.parsed.title); // 제목이 있는 것만
 
   if (parsedProblems.length === 0) {
     console.log('ℹ️  프로그래머스 관련 커밋이 없어 알림을 건너뜁니다.');
@@ -287,8 +287,8 @@ function sendWebhook(url, data) {
   const problemListValue = parsedProblems.map(({ parsed }) => {
     const level = parsed.level ? ` (Lv.${parsed.level})` : '';
     const link  = getProgrammersSearchUrl(parsed.title);
-    return `• [${parsed.title || '(제목 없음)'}](${link})${level}`;
-  }).join('\n');
+    return `• [${parsed.title}](${link})${level}`;
+  }).join('\n') || '(문제 없음)';
 
   // 스트릭
   const streakEmoji = getStreakEmoji(streakData.currentStreak);
