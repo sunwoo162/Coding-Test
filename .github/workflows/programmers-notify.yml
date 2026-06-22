@@ -1,0 +1,79 @@
+name: Programmers Commit Notify
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  # 매일 KST 23:00 = UTC 14:00 에 목표 미달성 체크
+  schedule:
+    - cron: '0 14 * * *'
+
+jobs:
+  # ── 목표 미달성 리마인더 (매일 밤 11시 KST) ──────────────
+  reminder:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Reminder Script
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          # 멘션할 Discord User ID (스페이스로 구분해서 여러 명 가능)
+          DISCORD_USER_IDS: ${{ secrets.DISCORD_USER_IDS }}
+        run: node scripts/reminder.js
+
+  # ── 커밋 알림 (push 시) ───────────────────────────────────
+  notify-discord:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Restore streak cache
+        uses: actions/cache@v4
+        with:
+          path: .streak-cache
+          key: streak-data-${{ github.repository_owner }}
+          restore-keys: |
+            streak-data-
+
+      - name: Run Discord Notify Script
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMITTER_NAME: ${{ github.event.head_commit.author.name }}
+          COMMITTER_USERNAME: ${{ github.actor }}
+          REPO_NAME: ${{ github.repository }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          COMMITS_JSON: ${{ toJson(github.event.commits) }}
+          STREAK_CACHE_DIR: .streak-cache
+        run: node scripts/notify.js
+
+      - name: Save streak cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .streak-cache
+          key: streak-data-${{ github.repository_owner }}-${{ github.run_id }}
