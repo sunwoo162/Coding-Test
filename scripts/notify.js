@@ -62,11 +62,6 @@ const PATTERNS = [
     re: /프로그래머스\s+(?:Lv\.?\s*(\d+)\s+)?(.+)$/im,
     parse: m => ({ title: m[2].trim(), level: m[1] || null }),
   },
-  // 범용: [무언가] 로 시작하는 커밋 — [] 안 내용을 태그로, 뒤 내용을 제목으로
-  {
-    re: /^\[([^\]]+)\]\s*(.+)/im,
-    parse: m => ({ title: m[2].trim(), level: null, tag: m[1].trim() }),
-  },
 ];
 
 function parseProgrammersCommit(message) {
