@@ -5,9 +5,9 @@ on:
     branches:
       - main
       - master
-  # 매일 KST 21:20 = UTC 12:20
+  # 매일 KST 20:50 = UTC 11:50
   schedule:
-    - cron: '20 12 * * *'
+    - cron: '50 11 * * *'
 
 jobs:
   # ── 목표 미달성 리마인더 (매일 밤 11시 KST) ──────────────

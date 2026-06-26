@@ -35,11 +35,15 @@ const todayKST = toGameDateString(new Date());
 // 커밋 메시지 파싱
 // ────────────────────────────────────────────────────────────
 const PATTERNS = [
+  // 백준허브 프로그래머스 실제 형식: [level 0] Title: 홀짝 구분하기, Time: ...
+  { re: /^\[level\s*(\d+)\]\s*Title:\s*(.+?),\s*Time:/im, parse: m => ({ title: m[2].trim(), level: m[1] }) },
   { re: /\[프로그래머스\]\s*(.+?)\s*\/\s*난이도\s*:\s*Level\s*(\d+)/im, parse: m => ({ title: m[1].trim(), level: m[2] }) },
   { re: /\[Programmers?\]\s*(.+?)\s*\/\s*난이도\s*:\s*Level\s*(\d+)/im, parse: m => ({ title: m[1].trim(), level: m[2] }) },
   { re: /\[Programmers?\]\s*(.+?)(?:\s*[-–]\s*Lv\.?\s*(\d+))?$/im,      parse: m => ({ title: m[1].trim(), level: m[2] || null }) },
   { re: /programmers?\s*:\s*(.+?)(?:\s+lv\.?\s*(\d+))?$/im,              parse: m => ({ title: m[1].trim(), level: m[2] || null }) },
   { re: /프로그래머스\s+(?:Lv\.?\s*(\d+)\s+)?(.+)$/im,                   parse: m => ({ title: m[2].trim(), level: m[1] || null }) },
+  // 범용: [무언가] 로 시작하는 커밋
+  { re: /^\[([^\]]+)\]\s*(.+)/im,                                         parse: m => ({ title: m[2].trim(), level: null, tag: m[1].trim() }) },
 ];
 
 function parseProgrammersCommit(message) {

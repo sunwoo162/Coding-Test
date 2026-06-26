@@ -24,14 +24,19 @@ if (!WEBHOOK_URL) {
 
 // ────────────────────────────────────────────────────────────
 // 커밋 메시지 파싱
-// 백준허브 프로그래머스 형식:
-//   [프로그래머스] 문제제목 / 난이도: Level X / 걸린시간: X분
-//   [Programmers] 문제제목 / 난이도: Level X
-// 수동 커밋 형식도 지원:
+// 백준허브 프로그래머스 실제 형식:
+//   [level 0] Title: 홀짝 구분하기, Time: 1.26 ms, Memory: 4.95 MB -BaekjoonHub
+// 기타 형식도 지원:
+//   [프로그래머스] 문제제목 / 난이도: Level X
 //   [Programmers] 문제제목 - Lv.1
-//   programmers: 문제제목 lv2
+//   [] 로 시작하는 모든 커밋 (범용)
 // ────────────────────────────────────────────────────────────
 const PATTERNS = [
+  // 백준허브 프로그래머스 실제 형식: [level 0] Title: 홀짝 구분하기, Time: ...
+  {
+    re: /^\[level\s*(\d+)\]\s*Title:\s*(.+?),\s*Time:/im,
+    parse: m => ({ title: m[2].trim(), level: m[1] }),
+  },
   // 백준허브 자동 커밋: [프로그래머스] 두 수의 합 / 난이도: Level1 / 걸린시간: 10분
   {
     re: /\[프로그래머스\]\s*(.+?)\s*\/\s*난이도\s*:\s*Level\s*(\d+)/im,
@@ -56,6 +61,11 @@ const PATTERNS = [
   {
     re: /프로그래머스\s+(?:Lv\.?\s*(\d+)\s+)?(.+)$/im,
     parse: m => ({ title: m[2].trim(), level: m[1] || null }),
+  },
+  // 범용: [무언가] 로 시작하는 커밋 — [] 안 내용을 태그로, 뒤 내용을 제목으로
+  {
+    re: /^\[([^\]]+)\]\s*(.+)/im,
+    parse: m => ({ title: m[2].trim(), level: null, tag: m[1].trim() }),
   },
 ];
 
@@ -285,9 +295,10 @@ function sendWebhook(url, data) {
 
   // 문제 목록 (링크 포함)
   const problemListValue = parsedProblems.map(({ parsed }) => {
-    const level = parsed.level ? ` (Lv.${parsed.level})` : '';
-    const link  = getProgrammersSearchUrl(parsed.title);
-    return `• [${parsed.title}](${link})${level}`;
+    const levelStr = parsed.level ? `Lv.${parsed.level}` : (parsed.tag || null);
+    const suffix   = levelStr ? ` (${levelStr})` : '';
+    const link     = getProgrammersSearchUrl(parsed.title);
+    return `• [${parsed.title}](${link})${suffix}`;
   }).join('\n') || '(문제 없음)';
 
   // 스트릭
