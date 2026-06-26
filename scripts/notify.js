@@ -178,6 +178,22 @@ function httpsGet(url, headers) {
   });
 }
 
+// ────────────────────────────────────────────────────────────
+// 풀이 폴더 판별 (백준/ 또는 프로그래머스/ 하위 파일 포함 여부)
+// ────────────────────────────────────────────────────────────
+const SOLUTION_PATH_RE = /^(백준|프로그래머스)\//i;
+
+async function commitHasSolutionFile(sha) {
+  if (!GITHUB_TOKEN || !GITHUB_REPOSITORY) return true; // API 없으면 통과
+  const { status, body } = await httpsGet(
+    `https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${sha}`,
+    { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
+  );
+  if (status !== 200) return true; // API 오류면 통과
+  const data = JSON.parse(body);
+  return (data.files || []).some(f => SOLUTION_PATH_RE.test(f.filename));
+}
+
 async function fetchTodayProgrammersCount() {
   if (!GITHUB_TOKEN || !GITHUB_REPOSITORY) {
     console.warn('⚠️  GitHub API 사용 불가 → 이번 push 기준으로만 집계합니다.');
@@ -198,8 +214,11 @@ async function fetchTodayProgrammersCount() {
 
     for (const c of commits) {
       const msg  = c.commit?.message || '';
+      const sha  = c.sha || '';
       const date = c.commit?.author?.date || c.commit?.committer?.date || '';
-      if (date && toKSTDateString(date) === todayKST && parseProgrammersCommit(msg)) count++;
+      if (date && toKSTDateString(date) === todayKST && parseProgrammersCommit(msg)) {
+        if (await commitHasSolutionFile(sha)) count++;
+      }
     }
     if (commits.length < 100) break;
     page++;
@@ -248,9 +267,18 @@ function sendWebhook(url, data) {
   try { allCommits = JSON.parse(COMMITS_JSON); }
   catch { allCommits = [{ message: COMMIT_MSG, author: { name: COMMITTER } }]; }
 
-  const parsedProblems = allCommits
-    .map(c => ({ raw: c.message, parsed: parseProgrammersCommit(c.message) }))
-    .filter(c => c.parsed !== null && c.parsed.title); // 제목이 있는 것만
+  const parsedProblems = (
+    await Promise.all(
+      allCommits.map(async c => {
+        const parsed = parseProgrammersCommit(c.message);
+        if (!parsed || !parsed.title) return null;
+        // 백준/ 또는 프로그래머스/ 파일이 포함된 커밋만 인정
+        const sha = c.id || c.sha || '';
+        if (sha && !(await commitHasSolutionFile(sha))) return null;
+        return { raw: c.message, parsed };
+      })
+    )
+  ).filter(Boolean);
 
   if (parsedProblems.length === 0) {
     console.log('ℹ️  프로그래머스 관련 커밋이 없어 알림을 건너뜁니다.');

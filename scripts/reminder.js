@@ -76,6 +76,22 @@ function httpsGet(url, headers) {
   });
 }
 
+// ────────────────────────────────────────────────────────────
+// 풀이 폴더 판별 (백준/ 또는 프로그래머스/ 하위 파일 포함 여부)
+// ────────────────────────────────────────────────────────────
+const SOLUTION_PATH_RE = /^(백준|프로그래머스)\//i;
+
+async function commitHasSolutionFile(sha) {
+  if (!GITHUB_TOKEN || !GITHUB_REPOSITORY) return true;
+  const { status, body } = await httpsGet(
+    `https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${sha}`,
+    { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
+  );
+  if (status !== 200) return true;
+  const data = JSON.parse(body);
+  return (data.files || []).some(f => SOLUTION_PATH_RE.test(f.filename));
+}
+
 async function fetchTodayProgrammersCount() {
   if (!GITHUB_TOKEN || !GITHUB_REPOSITORY) return 0;
 
@@ -95,8 +111,11 @@ async function fetchTodayProgrammersCount() {
 
     for (const c of commits) {
       const msg  = c.commit?.message || '';
+      const sha  = c.sha || '';
       const date = c.commit?.author?.date || c.commit?.committer?.date || '';
-      if (date && toGameDateString(date) === todayKST && parseProgrammersCommit(msg)) count++;
+      if (date && toGameDateString(date) === todayKST && parseProgrammersCommit(msg)) {
+        if (await commitHasSolutionFile(sha)) count++;
+      }
     }
     if (commits.length < 100) break;
     page++;
